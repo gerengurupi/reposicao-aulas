@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Gestão · Reposição de aulas</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="comum.css">
+<script src="config.js"></script>
+</head>
+<body>
+<main>
+  <header class="topo"><div><b>Gestão</b><small>Reposição de aulas · Gerência de Ensino</small></div></header>
+  <div id="tela"></div>
+</main>
+<script src="comum.js"></script>
+<script>
+const tela = $('tela');
+let token = '', cursos = [], aba = 'coord';
+try { token = sessionStorage.getItem('rep_gestor') || ''; } catch (e) {}
+const guardar = t => { token = t; try { sessionStorage.setItem('rep_gestor', t); } catch (e) {} };
+
+function login(aviso) {
+  tela.innerHTML = `<div class="card"><h2>Entrar</h2>${aviso ? `<div class="msg erro" role="alert">${esc(aviso)}</div>` : ''}
+    <label for="se">Senha do gestor</label><input id="se" type="password" autocomplete="current-password">
+    <p></p><button id="ent" class="prim" type="button">Entrar</button></div>`;
+  $('ent').onclick = async () => {
+    $('ent').disabled = true;
+    const r = await chamar('login_gestor', { senha: $('se').value });
+    if (r.erro) return login(r.erro);
+    guardar(r.token); painel();
+  };
+}
+
+function abas() {
+  return `<div class="linha" style="margin-bottom:12px"><button data-a="coord" ${aba === 'coord' ? 'class="prim"' : ''}>Coordenadores</button><button data-a="lanc" ${aba === 'lanc' ? 'class="prim"' : ''}>Lançamentos</button></div>`;
+}
+
+async function painel(aviso) {
+  tela.innerHTML = '<div class="card">Carregando…</div>';
+  const r = aba === 'coord' ? await chamar('coord_listar', { token }) : await chamar('todos', { token });
+  if (r.sair) return login(r.erro);
+  if (r.erro) { tela.innerHTML = `<div class="msg erro">${esc(r.erro)}</div>`; return; }
+  const topo = abas() + (aviso ? `<div class="msg ok">${esc(aviso)}</div>` : '');
+  if (aba === 'coord') { cursos = r.cursos; tela.innerHTML = topo + telaCoord(r); ligarCoord(); }
+  else tela.innerHTML = topo + telaLanc(r.lancamentos);
+  tela.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { aba = b.dataset.a; painel(); });
+}
+
+function telaCoord(r) {
+  return `${r.coordenadores.length ? r.coordenadores.map(c => `<div class="card cartao"><h3>${esc(c.nome)}</h3><div class="meta">${esc(c.email)}<br>${esc(c.cursos.join(' · '))}</div>
+      <div class="acoes"><button data-ed="${esc(c.email)}" type="button">Editar</button><button class="ruim" data-rm="${esc(c.email)}" type="button">Remover</button></div></div>`).join('')
+      : '<div class="card mudo">Nenhum coordenador cadastrado.</div>'}
+    <div class="card" id="form"><h2 id="ft">Novo coordenador</h2>
+      <label for="cn">Nome</label><input id="cn" autocomplete="off">
+      <label for="ce">E-mail</label><input id="ce" type="email" inputmode="email" autocomplete="off">
+      <label>Cursos que ele defere</label>${cursos.length ? cursos.map(c => `<label style="font-weight:400;display:flex;gap:8px;align-items:center"><input type="checkbox" name="cc" value="${esc(c)}" style="width:22px;min-height:22px"> ${esc(c)}</label>`).join('') : '<p class="mudo">Sincronize o IF Conecta para publicar a lista de cursos.</p>'}
+      <label for="cs">Senha <span class="mudo">(8+ letras; vazia mantém a atual)</span></label><input id="cs" type="password" autocomplete="new-password">
+      <div id="msg"></div><p></p><button id="sv" class="prim" type="button">Salvar coordenador</button></div>
+    <p><button id="sair" type="button">Sair</button></p>`;
+}
+
+function ligarCoord() {
+  $('sair').onclick = () => { guardar(''); login(); };
+  tela.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => {
+    if (!confirm('Remover este coordenador?')) return;
+    const r = await chamar('coord_remover', { token, email: b.dataset.rm });
+    r.sair ? login(r.erro) : painel(r.erro || 'Coordenador removido.');
+  });
+  tela.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => {
+    const c = [...tela.querySelectorAll('.cartao')].find(x => x.querySelector('[data-ed]') === b);
+    $('ft').textContent = 'Editar coordenador'; $('cn').value = c.querySelector('h3').textContent;
+    $('ce').value = b.dataset.ed; const cur = c.querySelector('.meta').innerText.split('\n').pop().split(' · ');
+    tela.querySelectorAll('[name=cc]').forEach(i => i.checked = cur.includes(i.value)); $('form').scrollIntoView();
+  });
+  $('sv').onclick = async () => {
+    const r = await chamar('coord_salvar', { token, nome: $('cn').value, email: $('ce').value, senha: $('cs').value,
+      cursos: [...tela.querySelectorAll('[name=cc]:checked')].map(i => i.value) });
+    if (r.sair) return login(r.erro);
+    if (r.erro) { $('msg').innerHTML = `<div class="msg erro" role="alert">${esc(r.erro)}</div>`; return; }
+    painel('Coordenador salvo.');
+  };
+}
+
+function telaLanc(ls) {
+  const n = s => ls.filter(l => l.status === s).length;
+  return `<p class="mudo">${ls.length} lançamentos recentes · ${n('pendente')} pendentes · ${n('deferido')} deferidos · ${n('recusado')} recusados. Só leitura: quem defere é o coordenador do curso.</p>
+    ${ls.map(l => `<div class="card cartao"><span class="etq">${TIPOS[l.tipo][0]} · ${esc(l.status)}</span><h3>${esc(l.docente)}${l.com_docente ? ' ↔ ' + esc(l.com_docente) : ''}</h3>
+      <div class="meta">${esc(l.curso)} · ${esc(l.disciplina)} · ${esc(l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}
+      <br>Lançado por ${esc(l.lancado_por)} (${esc(l.papel)})${l.decidido_por ? '<br>Decidido por ' + esc(l.decidido_por) + (l.motivo_decisao ? ': ' + esc(l.motivo_decisao) : '') : ''}</div></div>`).join('') || '<div class="card mudo">Nenhum lançamento ainda.</div>'}
+    <p><button id="sair" type="button">Sair</button></p>`;
+}
+token ? painel() : login();
+document.addEventListener('click', e => { if (e.target && e.target.id === 'sair') { guardar(''); login(); } });
+</script>
+</body>
+</html>
