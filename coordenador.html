@@ -54,8 +54,19 @@ async function fila(aviso) {
     <h2>Aguardando você (${r.pendentes.length})</h2>
     ${r.pendentes.length ? r.pendentes.map(l => cartao(l, true)).join('') : '<div class="card mudo">Nada pendente. 🎉</div>'}
     <h2 style="margin-top:20px">Decididos recentemente</h2>${r.recentes.length ? r.recentes.map(l => cartao(l, false)).join('') : '<div class="card mudo">Ainda não há decisões.</div>'}
-    <p><button id="sair" type="button">Sair</button></p>`;
+    <p><button id="trocar" type="button">Trocar minha senha</button> <button id="sair" type="button">Sair</button></p><div id="ts"></div>`;
   $('sair').onclick = () => { guardar(''); login(); };
+  $('trocar').onclick = () => {
+    $('ts').innerHTML = `<div class="card"><h2>Trocar minha senha</h2><label for="sa">Senha atual</label><input id="sa" type="password" autocomplete="current-password">
+      <label for="sn">Nova senha (8 letras ou mais)</label><input id="sn" type="password" autocomplete="new-password"><div id="tm"></div><p></p><button id="tok" class="prim" type="button">Salvar nova senha</button></div>`;
+    $('sa').focus();
+    $('tok').onclick = async () => {
+      const x = await chamar('trocar_senha', { token, atual: $('sa').value, nova: $('sn').value });
+      if (x.sair) return login(x.erro);
+      if (x.erro) { $('tm').innerHTML = `<div class="msg erro" role="alert">${esc(x.erro)}</div>`; return; }
+      guardar(x.token); fila('Senha trocada.');
+    };
+  };
   tela.querySelectorAll('.cartao').forEach(c => c.querySelectorAll('[data-d]').forEach(b => b.onclick = () => decidir(c, b.dataset.d)));
 }
 
