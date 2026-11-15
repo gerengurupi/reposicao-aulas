@@ -38,7 +38,7 @@ function cartao(l, pend) {
   const ET = TIPOS[l.tipo][0], com = l.com_docente ? ' ↔ ' + esc(l.com_docente) : '';
   return `<div class="card cartao" data-id="${esc(l.id)}"><span class="etq">${ET}</span>
     <h3>${esc(l.docente)}${com}</h3>
-    <div class="meta">${esc(l.disciplina)} · ${esc(l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}${l.motivo ? '<br>“' + esc(l.motivo) + '”' : ''}
+    <div class="meta">${esc(l.disciplina)} · ${esc(l.turma_nome || l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}${l.motivo ? '<br>“' + esc(l.motivo) + '”' : ''}
       <br>Lançado por ${esc(l.lancado_por)} (${l.papel === 'professor' ? 'professor' : 'representante'})</div>
     ${pend ? `<div class="acoes"><button class="prim" data-d="deferido" type="button">Deferir</button><button class="ruim" data-d="recusado" type="button">Recusar</button></div><div class="alvo"></div>`
       : `<div class="meta" style="margin-top:8px"><b>${l.status === 'deferido' ? 'Deferido' : 'Recusado'}</b> por ${esc(l.decidido_por)}${l.motivo_decisao ? ': ' + esc(l.motivo_decisao) : ''}</div>`}</div>`;

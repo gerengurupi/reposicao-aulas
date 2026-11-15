@@ -87,7 +87,7 @@ function telaLanc(ls) {
   const n = s => ls.filter(l => l.status === s).length;
   return `<p class="mudo">${ls.length} lançamentos recentes · ${n('pendente')} pendentes · ${n('deferido')} deferidos · ${n('recusado')} recusados. Só leitura: quem defere é o coordenador do curso.</p>
     ${ls.map(l => `<div class="card cartao"><span class="etq">${TIPOS[l.tipo][0]} · ${esc(l.status)}</span><h3>${esc(l.docente)}${l.com_docente ? ' ↔ ' + esc(l.com_docente) : ''}</h3>
-      <div class="meta">${esc(l.curso)} · ${esc(l.disciplina)} · ${esc(l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}
+      <div class="meta">${esc(l.curso)} · ${esc(l.disciplina)} · ${esc(l.turma_nome || l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}
       <br>Lançado por ${esc(l.lancado_por)} (${esc(l.papel)})${l.decidido_por ? '<br>Decidido por ' + esc(l.decidido_por) + (l.motivo_decisao ? ': ' + esc(l.motivo_decisao) : '') : ''}</div></div>`).join('') || '<div class="card mudo">Nenhum lançamento ainda.</div>'}
     <p><button id="sair" type="button">Sair</button></p>`;
 }
