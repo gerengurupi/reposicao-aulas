@@ -46,7 +46,8 @@ function cartao(l, pend) {
 }
 
 function listaSaldos(s) {
-  if (!s || s.erro) return '';
+  if (!s) return '';
+  if (s.erro) return `<h2 style="margin-top:20px">Quem deve aula</h2><div class="msg erro">Lista indisponível agora (${esc(s.erro)}).</div>`;
   const lin = (x, dev) => `<div class="linha" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--lin)"><span>${esc(x.nome)}</span><b style="flex:0;white-space:nowrap;color:${dev ? 'var(--ruim)' : 'var(--ac)'}">${dev ? '' : '+'}${x.saldo} ${Math.abs(x.saldo) === 1 ? 'aula' : 'aulas'}</b></div>`;
   return `<h2 style="margin-top:20px">Quem deve aula (${s.devendo.length})</h2><div class="card">${s.devendo.length ? s.devendo.map(x => lin(x, true)).join('') : '<span class="mudo">Ninguém do seu curso deve aula.</span>'}</div>
     <h2>Com aulas em crédito (${s.credito.length})</h2><div class="card">${s.credito.length ? s.credito.map(x => lin(x, false)).join('') : '<span class="mudo">Ninguém com crédito.</span>'}</div>
