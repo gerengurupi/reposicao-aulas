@@ -34,17 +34,18 @@ function login(aviso) {
 }
 
 function abas() {
-  return `<div class="linha" style="margin-bottom:12px"><button data-a="coord" ${aba === 'coord' ? 'class="prim"' : ''}>Coordenadores</button><button data-a="lanc" ${aba === 'lanc' ? 'class="prim"' : ''}>Lançamentos</button></div>`;
+  return `<div class="linha" style="margin-bottom:12px"><button data-a="coord" ${aba === 'coord' ? 'class="prim"' : ''}>Coordenadores</button><button data-a="lanc" ${aba === 'lanc' ? 'class="prim"' : ''}>Lançamentos</button><button data-a="saldos" ${aba === 'saldos' ? 'class="prim"' : ''}>Saldos</button></div>`;
 }
 
 async function painel(aviso) {
   tela.innerHTML = '<div class="card">Carregando…</div>';
-  const r = aba === 'coord' ? await chamar('coord_listar', { token }) : await chamar('todos', { token });
+  const r = aba === 'coord' ? await chamar('coord_listar', { token }) : await chamar(aba === 'saldos' ? 'saldos' : 'todos', { token });
   if (r.sair) return login(r.erro);
   if (r.erro) { tela.innerHTML = `<div class="msg erro">${esc(r.erro)}</div>`; return; }
   const topo = abas() + (aviso ? `<div class="msg ok">${esc(aviso)}</div>` : '');
   if (aba === 'coord') { cursos = r.cursos; tela.innerHTML = topo + telaCoord(r); ligarCoord(); }
-  else tela.innerHTML = topo + telaLanc(r.lancamentos);
+  else if (aba === 'saldos') tela.innerHTML = topo + telaSaldos(r);
+  else { tela.innerHTML = topo + telaLanc(r.lancamentos); ligarLanc(); }
   tela.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { aba = b.dataset.a; painel(); });
 }
 
@@ -83,12 +84,44 @@ function ligarCoord() {
   };
 }
 
+function telaSaldos(s) {
+  const lin = (x, dev) => `<div class="linha" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--lin)"><span>${esc(x.nome)}<br><span class="mudo">${esc(x.cursos.join(' · '))}</span></span><b style="flex:0;white-space:nowrap;color:${dev ? 'var(--ruim)' : 'var(--ac)'}">${dev ? '' : '+'}${x.saldo} ${Math.abs(x.saldo) === 1 ? 'aula' : 'aulas'}</b></div>`;
+  return `<h2>Quem deve aula (${s.devendo.length})</h2><div class="card">${s.devendo.length ? s.devendo.map(x => lin(x, true)).join('') : '<span class="mudo">Ninguém deve aula.</span>'}</div>
+    <h2>Com aulas em crédito (${s.credito.length})</h2><div class="card">${s.credito.length ? s.credito.map(x => lin(x, false)).join('') : '<span class="mudo">Ninguém com crédito.</span>'}</div>
+    <p class="mudo">${s.atualizado_em ? 'Atualizado pelo IF Conecta em ' + new Date(s.atualizado_em).toLocaleString('pt-BR') + '.' : 'Ainda não atualizado pelo IF Conecta.'}</p><p><button id="sair" type="button">Sair</button></p>`;
+}
+
+function ligarLanc() {
+  tela.querySelectorAll('[data-an]').forEach(b => b.onclick = async () => {
+    const alvo = b.parentNode.querySelector('.anv'); alvo.textContent = 'Abrindo…';
+    const r = await chamar('anexo', { token, id: b.dataset.an });
+    if (r.sair) return login(r.erro);
+    if (r.erro) { alvo.innerHTML = `<div class="msg erro">${esc(r.erro)}</div>`; return; }
+    const bin = atob(r.dados), u8 = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+    const url = URL.createObjectURL(new Blob([u8], { type: r.tipo }));
+    alvo.innerHTML = r.tipo === 'application/pdf' ? `<a href="${url}" target="_blank" rel="noopener">Abrir o PDF</a>` : `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="Lista de frequência" style="max-width:100%;border-radius:10px;border:1px solid var(--lin)"></a>`;
+  });
+  tela.querySelectorAll('.cartao').forEach(c => c.querySelectorAll('[data-d]').forEach(b => b.onclick = async () => {
+    const d = b.dataset.d;
+    if (d === 'recusado' && !c.querySelector('.mot')) {
+      c.querySelector('.alvo').innerHTML = '<label>Motivo da recusa</label><textarea class="mot" maxlength="300"></textarea><div class="erro-l"></div><p class="mudo">Toque em Recusar de novo para confirmar.</p>';
+      return;
+    }
+    const id = c.querySelector('[data-an]') ? c.querySelector('[data-an]').dataset.an : null;
+    c.querySelectorAll('button').forEach(x => x.disabled = true);
+    const r = await chamar('decidir', { token, id: c.dataset.id, decisao: d, motivo: c.querySelector('.mot') ? c.querySelector('.mot').value : '' });
+    if (r.sair) return login(r.erro);
+    if (r.erro) { c.querySelectorAll('button').forEach(x => x.disabled = false); (c.querySelector('.erro-l') || c.querySelector('.alvo')).innerHTML = `<div class="msg erro" role="alert">${esc(r.erro)}</div>`; return; }
+    painel(d === 'deferido' ? 'Lançamento deferido.' : 'Lançamento recusado.');
+  }));
+}
+
 function telaLanc(ls) {
   const n = s => ls.filter(l => l.status === s).length;
-  return `<p class="mudo">${ls.length} lançamentos recentes · ${n('pendente')} pendentes · ${n('deferido')} deferidos · ${n('recusado')} recusados. Só leitura: quem defere é o coordenador do curso.</p>
-    ${ls.map(l => `<div class="card cartao"><span class="etq">${TIPOS[l.tipo][0]} · ${esc(l.status)}</span><h3>${esc(l.docente)}${l.com_docente ? ' ↔ ' + esc(l.com_docente) : ''}</h3>
+  return `<p class="mudo">${ls.length} lançamentos recentes · ${n('pendente')} pendentes · ${n('deferido')} deferidos · ${n('recusado')} recusados. Você pode deferir ou recusar qualquer pendente; o coordenador do curso também.</p>
+    ${ls.map(l => `<div class="card cartao" data-id="${esc(l.id)}"><span class="etq">${TIPOS[l.tipo][0]} · ${esc(l.status)}</span><h3>${esc(l.docente)}${l.com_docente ? ' ↔ ' + esc(l.com_docente) : ''}</h3>
       <div class="meta">${esc(l.curso)} · ${esc(l.disciplina)} · ${esc(l.turma_nome || l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}
-      <br>Lançado por ${esc(l.lancado_por)} (${esc(l.papel)})${l.tem_anexo ? '<br>Lista de frequência anexada' : ''}${l.decidido_por ? '<br>Decidido por ' + esc(l.decidido_por) + (l.motivo_decisao ? ': ' + esc(l.motivo_decisao) : '') : ''}</div></div>`).join('') || '<div class="card mudo">Nenhum lançamento ainda.</div>'}
+      <br>Lançado por ${esc(l.lancado_por)} (${esc(l.papel)})${l.tem_anexo ? '<br>Lista de frequência anexada' : ''}${l.decidido_por ? '<br>Decidido por ' + esc(l.decidido_por) + (l.motivo_decisao ? ': ' + esc(l.motivo_decisao) : '') : ''}</div>${l.tem_anexo ? `<div style="margin-top:10px"><button type="button" data-an="${esc(l.id)}">Ver lista de frequência</button><div class="anv" style="margin-top:8px"></div></div>` : ''}${l.status === 'pendente' ? `<div class="acoes"><button class="prim" data-d="deferido" type="button">Deferir</button><button class="ruim" data-d="recusado" type="button">Recusar</button></div><div class="alvo"></div>` : ''}</div>`).join('') || '<div class="card mudo">Nenhum lançamento ainda.</div>'}
     <p><button id="sair" type="button">Sair</button></p>`;
 }
 token ? painel() : login();
