@@ -79,19 +79,44 @@ function passoTurma() {
   });
 }
 
+/** Foto: reduz para no máximo 1600 px em JPEG (fica com ~300 KB); PDF: até 4 MB. Devolve {nome, tipo, dados(base64)}. */
+async function lerAnexo(f) {
+  const base64 = blob => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = () => no(new Error('Não consegui ler esse arquivo.')); r.readAsDataURL(blob); });
+  if (f.type === 'application/pdf') {
+    if (f.size > 4 * 1024 * 1024) throw new Error('O PDF é grande demais (máximo 4 MB). Tire uma foto da lista.');
+    return { nome: f.name, tipo: f.type, dados: await base64(f) };
+  }
+  if (!/^image\//.test(f.type)) throw new Error('Escolha uma foto ou um PDF.');
+  let img; try { img = await createImageBitmap(f); } catch (e) { throw new Error('Não consegui abrir essa foto. Tente tirar de novo ou envie um PDF.'); }
+  const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  const dados = c.toDataURL('image/jpeg', 0.8).split(',')[1];
+  return { nome: f.name.replace(/\.[^.]+$/, '') + '.jpg', tipo: 'image/jpeg', dados };
+}
+
 function hojeISO() { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
 
 function passoDados() {
   tela.innerHTML = cab('Quando foi e quantas aulas?') + `<div class="card">
     <label for="dt">Data da aula</label><input id="dt" type="date" max="${hojeISO()}" value="${esc(E.d.data || '')}">
     <label for="qt">Quantidade de aulas</label><input id="qt" type="number" inputmode="numeric" min="1" max="40" value="${esc(E.d.quantidade || 2)}">
+    ${E.d.tipo === 'reposicao' ? `<label for="an">Lista de frequência da reposição <span class="mudo">(foto ou PDF, obrigatório)</span></label>
+      <input id="an" type="file" accept="image/*,application/pdf"><p class="mudo" id="anInfo">${E.d.anexo ? 'Anexado: ' + esc(E.d.anexo.nome) : 'Tire uma foto da lista assinada ou escolha o arquivo.'}</p>` : ''}
     <label for="mo">Motivo ou observação <span class="mudo">(opcional)</span></label><textarea id="mo" maxlength="300">${esc(E.d.motivo || '')}</textarea>
     <div id="msg"></div></div><div class="linha">${voltar()}<button id="prox" class="prim" type="button">Continuar</button></div>`;
+  if ($('an')) $('an').onchange = async () => {
+    const f = $('an').files[0]; if (!f) return;
+    $('anInfo').textContent = 'Preparando o arquivo…'; E.d.anexo = null;
+    try { E.d.anexo = await lerAnexo(f); $('anInfo').textContent = 'Anexado: ' + f.name; }
+    catch (e) { $('anInfo').textContent = ''; msg(e.message || 'Não consegui ler esse arquivo.'); }
+  };
   ligar(() => {
     E.d.data = $('dt').value; E.d.quantidade = Number($('qt').value); E.d.motivo = $('mo').value;
     if (!E.d.data) return msg('Informe a data.');
     if (E.d.data > hojeISO()) return msg('A data não pode ser futura.');
     if (!(E.d.quantidade >= 1 && E.d.quantidade <= 40) || Math.floor(E.d.quantidade) !== E.d.quantidade) return msg('A quantidade deve ser um número inteiro de 1 a 40.');
+    if (E.d.tipo === 'reposicao' && !E.d.anexo) return msg('Anexe a lista de frequência da reposição.');
     E.passo = 4; desenhar();
   });
 }
@@ -99,7 +124,7 @@ function passoDados() {
 function resumo() {
   const doc = E.docentes.find(x => x.ref === E.d.ref_docente), com = E.docentes.find(x => x.ref === E.d.ref_com);
   return `<div class="card"><b>${TIPOS[E.d.tipo][0]}</b>: ${esc(doc.nome)}${com ? ' ↔ ' + esc(com.nome) : ''}<br>
-    ${esc(E.d.disciplina)} · ${esc(E.d.turma_nome || E.d.turma)}<br>${dataBR(E.d.data)} · ${E.d.quantidade} ${E.d.quantidade === 1 ? 'aula' : 'aulas'}</div>`;
+    ${esc(E.d.disciplina)} · ${esc(E.d.turma_nome || E.d.turma)}<br>${dataBR(E.d.data)} · ${E.d.quantidade} ${E.d.quantidade === 1 ? 'aula' : 'aulas'}${E.d.anexo ? '<br>Lista de frequência anexada' : ''}</div>`;
 }
 
 function passoVoce() {

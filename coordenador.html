@@ -40,6 +40,7 @@ function cartao(l, pend) {
     <h3>${esc(l.docente)}${com}</h3>
     <div class="meta">${esc(l.disciplina)} · ${esc(l.turma_nome || l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}${l.motivo ? '<br>“' + esc(l.motivo) + '”' : ''}
       <br>Lançado por ${esc(l.lancado_por)} (${l.papel === 'professor' ? 'professor' : 'representante'})</div>
+    ${l.tem_anexo ? `<div style="margin-top:10px"><button type="button" data-an="${esc(l.id)}">Ver lista de frequência</button><div class="anv" style="margin-top:8px"></div></div>` : ''}
     ${pend ? `<div class="acoes"><button class="prim" data-d="deferido" type="button">Deferir</button><button class="ruim" data-d="recusado" type="button">Recusar</button></div><div class="alvo"></div>`
       : `<div class="meta" style="margin-top:8px"><b>${l.status === 'deferido' ? 'Deferido' : 'Recusado'}</b> por ${esc(l.decidido_por)}${l.motivo_decisao ? ': ' + esc(l.motivo_decisao) : ''}</div>`}</div>`;
 }
@@ -67,6 +68,15 @@ async function fila(aviso) {
       guardar(x.token); fila('Senha trocada.');
     };
   };
+  tela.querySelectorAll('[data-an]').forEach(b => b.onclick = async () => {
+    const alvo = b.parentNode.querySelector('.anv'); alvo.textContent = 'Abrindo…';
+    const r = await chamar('anexo', { token, id: b.dataset.an });
+    if (r.sair) return login(r.erro);
+    if (r.erro) { alvo.innerHTML = `<div class="msg erro">${esc(r.erro)}</div>`; return; }
+    const bin = atob(r.dados), u8 = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+    const url = URL.createObjectURL(new Blob([u8], { type: r.tipo }));
+    alvo.innerHTML = r.tipo === 'application/pdf' ? `<a href="${url}" target="_blank" rel="noopener">Abrir o PDF</a>` : `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="Lista de frequência" style="max-width:100%;border-radius:10px;border:1px solid var(--lin)"></a>`;
+  });
   tela.querySelectorAll('.cartao').forEach(c => c.querySelectorAll('[data-d]').forEach(b => b.onclick = () => decidir(c, b.dataset.d)));
 }
 
