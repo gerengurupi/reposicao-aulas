@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reposição de aulas</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="comum.css">
+<script src="config.js"></script>
+</head>
+<body>
+<main>
+  <header class="topo"><div><b>Reposição de aulas</b><small>IFTO Campus Gurupi · Gerência de Ensino</small></div></header>
+  <div id="tela"></div>
+  <p class="mudo">O lançamento só vale depois que o coordenador do curso aceitar.</p>
+</main>
+<script src="comum.js"></script>
+<script>
+const E = { passo: 0, d: {}, docentes: [] };
+const tela = $('tela');
+const NOME_PASSOS = ['Tipo', 'Docente', 'Turma', 'Dados', 'Você'];
+
+function cab(titulo) { return `<p class="passo">Passo ${E.passo + 1} de ${NOME_PASSOS.length}</p><h1>${titulo}</h1>`; }
+function msg(t) { const m = $('msg'); if (m) m.innerHTML = t ? `<div class="msg erro" role="alert">${esc(t)}</div>` : ''; }
+function voltar() { return E.passo ? '<button id="vlt" type="button">Voltar</button>' : ''; }
+function ligar(prox) { if ($('vlt')) $('vlt').onclick = () => { E.passo--; desenhar(); }; if ($('prox')) $('prox').onclick = prox; }
+
+async function iniciar() {
+  tela.innerHTML = '<div class="card">Carregando a lista de docentes…</div>';
+  const r = await chamar('catalogo');
+  if (r.erro) { tela.innerHTML = `<div class="msg erro">${esc(r.erro)}</div>`; return; }
+  E.docentes = r.docentes;
+  if (!E.docentes.length) { tela.innerHTML = '<div class="msg erro">A lista de docentes ainda não foi publicada pela Gerência.</div>'; return; }
+  desenhar();
+}
+
+function desenhar() {
+  const f = [passoTipo, passoDocente, passoTurma, passoDados, passoVoce][E.passo];
+  f();
+}
+
+function passoTipo() {
+  tela.innerHTML = cab('O que aconteceu?') + '<div class="tipos">' + Object.keys(TIPOS).map(k =>
+    `<button type="button" data-t="${k}">${TIPOS[k][0]}<small>${TIPOS[k][1]}</small></button>`).join('') + '</div>';
+  tela.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { E.d.tipo = b.dataset.t; E.passo = 1; desenhar(); });
+}
+
+function opcoesDocentes(sel, exceto) {
+  return '<option value="">Escolha…</option>' + E.docentes.filter(d => d.ref !== exceto).map(d =>
+    `<option value="${esc(d.ref)}"${d.ref === sel ? ' selected' : ''}>${esc(d.nome)}</option>`).join('');
+}
+
+function passoDocente() {
+  const perm = E.d.tipo === 'permuta';
+  tela.innerHTML = cab(perm ? 'Quem trocou de aula?' : 'De qual docente?') + `<div class="card">
+    <label for="doc">${perm ? 'Docente que lança a troca' : 'Docente'}</label><select id="doc">${opcoesDocentes(E.d.ref_docente)}</select>
+    ${perm ? `<label for="com">Trocou com</label><select id="com">${opcoesDocentes(E.d.ref_com, E.d.ref_docente)}</select>` : ''}
+    <div id="msg"></div></div><div class="linha">${voltar()}<button id="prox" class="prim" type="button">Continuar</button></div>`;
+  if (perm) $('doc').onchange = () => { E.d.ref_docente = $('doc').value; E.d.ref_com = ''; passoDocente(); };
+  ligar(() => {
+    E.d.ref_docente = $('doc').value; if (perm) E.d.ref_com = $('com').value;
+    if (!E.d.ref_docente) return msg('Escolha o docente.');
+    if (perm && !E.d.ref_com) return msg('Escolha o outro docente da troca.');
+    E.d.turma = ''; E.passo = 2; desenhar();
+  });
+}
+
+function turmasDoDocente() { const d = E.docentes.find(x => x.ref === E.d.ref_docente); return d ? d.turmas : []; }
+
+function passoTurma() {
+  const ts = turmasDoDocente();
+  tela.innerHTML = cab('Qual turma e disciplina?') + `<div class="card"><label for="tur">Turma e disciplina</label>
+    <select id="tur"><option value="">Escolha…</option>${ts.map((t, i) => `<option value="${i}"${t.turma === E.d.turma && t.disciplina === E.d.disciplina ? ' selected' : ''}>${esc(t.disciplina)} · ${esc(t.turma)}</option>`).join('')}</select>
+    <p class="mudo" style="margin-top:8px">Mostra só as turmas que esse docente tem.</p><div id="msg"></div></div>
+    <div class="linha">${voltar()}<button id="prox" class="prim" type="button">Continuar</button></div>`;
+  ligar(() => {
+    const i = $('tur').value; if (i === '') return msg('Escolha a turma e a disciplina.');
+    E.d.turma = ts[i].turma; E.d.disciplina = ts[i].disciplina; E.d.curso = ts[i].curso; E.passo = 3; desenhar();
+  });
+}
+
+function hojeISO() { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+
+function passoDados() {
+  tela.innerHTML = cab('Quando foi e quantas aulas?') + `<div class="card">
+    <label for="dt">Data da aula</label><input id="dt" type="date" max="${hojeISO()}" value="${esc(E.d.data || '')}">
+    <label for="qt">Quantidade de aulas</label><input id="qt" type="number" inputmode="numeric" min="1" max="40" value="${esc(E.d.quantidade || 1)}">
+    <label for="mo">Motivo ou observação <span class="mudo">(opcional)</span></label><textarea id="mo" maxlength="300">${esc(E.d.motivo || '')}</textarea>
+    <div id="msg"></div></div><div class="linha">${voltar()}<button id="prox" class="prim" type="button">Continuar</button></div>`;
+  ligar(() => {
+    E.d.data = $('dt').value; E.d.quantidade = Number($('qt').value); E.d.motivo = $('mo').value;
+    if (!E.d.data) return msg('Informe a data.');
+    if (E.d.data > hojeISO()) return msg('A data não pode ser futura.');
+    if (!(E.d.quantidade >= 1 && E.d.quantidade <= 40) || Math.floor(E.d.quantidade) !== E.d.quantidade) return msg('A quantidade deve ser um número inteiro de 1 a 40.');
+    E.passo = 4; desenhar();
+  });
+}
+
+function resumo() {
+  const doc = E.docentes.find(x => x.ref === E.d.ref_docente), com = E.docentes.find(x => x.ref === E.d.ref_com);
+  return `<div class="card"><b>${TIPOS[E.d.tipo][0]}</b>: ${esc(doc.nome)}${com ? ' ↔ ' + esc(com.nome) : ''}<br>
+    ${esc(E.d.disciplina)} · ${esc(E.d.turma)}<br>${dataBR(E.d.data)} · ${E.d.quantidade} ${E.d.quantidade === 1 ? 'aula' : 'aulas'}</div>`;
+}
+
+function passoVoce() {
+  tela.innerHTML = cab('Quem está lançando?') + resumo() + `<div class="card">
+    <label for="nm">Seu nome</label><input id="nm" autocomplete="name" value="${esc(E.d.nome || '')}">
+    <label for="pp">Você é</label><select id="pp"><option value="">Escolha…</option>
+      <option value="professor"${E.d.papel === 'professor' ? ' selected' : ''}>Professor(a)</option>
+      <option value="representante"${E.d.papel === 'representante' ? ' selected' : ''}>Representante de turma</option></select>
+    <div id="msg"></div></div><div class="linha">${voltar()}<button id="prox" class="prim" type="button">Enviar</button></div>`;
+  ligar(async () => {
+    E.d.nome = $('nm').value; E.d.papel = $('pp').value;
+    if (E.d.nome.trim().length < 3) return msg('Informe seu nome.');
+    if (!E.d.papel) return msg('Diga se você é professor ou representante.');
+    $('prox').disabled = true; $('prox').textContent = 'Enviando…';
+    const r = await chamar('lancar', E.d);
+    if (r.erro) { $('prox').disabled = false; $('prox').textContent = 'Enviar'; return msg(r.erro); }
+    tela.innerHTML = `<div class="msg ok"><b>Enviado!</b><br>O coordenador do curso ${esc(r.curso)} vai analisar. Código: ${esc(r.id)}</div>
+      <button id="outro" class="prim" type="button">Fazer outro lançamento</button>`;
+    $('outro').onclick = () => { E.d = { nome: E.d.nome, papel: E.d.papel }; E.passo = 0; desenhar(); };
+  });
+}
+iniciar();
+</script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coordenação · Reposição de aulas</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="comum.css">
+<script src="config.js"></script>
+</head>
+<body>
+<main>
+  <header class="topo"><div><b>Coordenação</b><small>Reposição de aulas · IFTO Campus Gurupi</small></div></header>
+  <div id="tela"></div>
+</main>
+<script src="comum.js"></script>
+<script>
+const tela = $('tela');
+let token = '';
+try { token = sessionStorage.getItem('rep_token') || ''; } catch (e) {}
+
+function guardar(t) { token = t; try { sessionStorage.setItem('rep_token', t); } catch (e) {} }
+
+function login(aviso) {
+  tela.innerHTML = `<div class="card"><h2>Entrar</h2>${aviso ? `<div class="msg erro" role="alert">${esc(aviso)}</div>` : ''}
+    <label for="em">E-mail</label><input id="em" type="email" autocomplete="username" inputmode="email">
+    <label for="se">Senha</label><input id="se" type="password" autocomplete="current-password">
+    <div id="msg"></div><p></p><button id="ent" class="prim" type="button">Entrar</button></div>`;
+  $('ent').onclick = async () => {
+    $('ent').disabled = true;
+    const r = await chamar('login', { email: $('em').value, senha: $('se').value });
+    if (r.erro) return login(r.erro);
+    guardar(r.token); fila();
+  };
+}
+
+function cartao(l, pend) {
+  const ET = TIPOS[l.tipo][0], com = l.com_docente ? ' ↔ ' + esc(l.com_docente) : '';
+  return `<div class="card cartao" data-id="${esc(l.id)}"><span class="etq">${ET}</span>
+    <h3>${esc(l.docente)}${com}</h3>
+    <div class="meta">${esc(l.disciplina)} · ${esc(l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}${l.motivo ? '<br>“' + esc(l.motivo) + '”' : ''}
+      <br>Lançado por ${esc(l.lancado_por)} (${l.papel === 'professor' ? 'professor' : 'representante'})</div>
+    ${pend ? `<div class="acoes"><button class="prim" data-d="deferido" type="button">Deferir</button><button class="ruim" data-d="recusado" type="button">Recusar</button></div><div class="alvo"></div>`
+      : `<div class="meta" style="margin-top:8px"><b>${l.status === 'deferido' ? 'Deferido' : 'Recusado'}</b> por ${esc(l.decidido_por)}${l.motivo_decisao ? ': ' + esc(l.motivo_decisao) : ''}</div>`}</div>`;
+}
+
+async function fila(aviso) {
+  tela.innerHTML = '<div class="card">Carregando…</div>';
+  const r = await chamar('fila', { token });
+  if (r.sair) return login(r.erro);
+  if (r.erro) { tela.innerHTML = `<div class="msg erro">${esc(r.erro)}</div>`; return; }
+  tela.innerHTML = `<h1>Olá, ${esc(r.nome)}</h1><p class="mudo">Cursos: ${esc(r.cursos.join(', ') || 'nenhum')}</p>
+    ${aviso ? `<div class="msg ok">${esc(aviso)}</div>` : ''}
+    <h2>Aguardando você (${r.pendentes.length})</h2>
+    ${r.pendentes.length ? r.pendentes.map(l => cartao(l, true)).join('') : '<div class="card mudo">Nada pendente. 🎉</div>'}
+    <h2 style="margin-top:20px">Decididos recentemente</h2>${r.recentes.length ? r.recentes.map(l => cartao(l, false)).join('') : '<div class="card mudo">Ainda não há decisões.</div>'}
+    <p><button id="sair" type="button">Sair</button></p>`;
+  $('sair').onclick = () => { guardar(''); login(); };
+  tela.querySelectorAll('.cartao').forEach(c => c.querySelectorAll('[data-d]').forEach(b => b.onclick = () => decidir(c, b.dataset.d)));
+}
+
+function decidir(c, d) {
+  if (d === 'deferido') return enviar(c, d, '');
+  c.querySelector('.alvo').innerHTML = `<label>Motivo da recusa</label><textarea class="mot" maxlength="300"></textarea><div class="acoes"><button class="ruim ok-recusa" type="button">Confirmar recusa</button><button class="cancela" type="button">Cancelar</button></div><div class="erro-l"></div>`;
+  c.querySelector('.cancela').onclick = () => { c.querySelector('.alvo').innerHTML = ''; };
+  c.querySelector('.ok-recusa').onclick = () => enviar(c, d, c.querySelector('.mot').value);
+}
+
+async function enviar(c, d, motivo) {
+  c.querySelectorAll('button').forEach(b => b.disabled = true);
+  const r = await chamar('decidir', { token, id: c.dataset.id, decisao: d, motivo });
+  if (r.sair) return login(r.erro);
+  if (r.erro) { c.querySelectorAll('button').forEach(b => b.disabled = false); const e = c.querySelector('.erro-l') || c.querySelector('.alvo'); e.innerHTML = `<div class="msg erro" role="alert">${esc(r.erro)}</div>`; return; }
+  fila(d === 'deferido' ? 'Lançamento deferido.' : 'Lançamento recusado.');
+}
+token ? fila() : login();
+</script>
+</body>
+</html>
