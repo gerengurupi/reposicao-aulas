@@ -120,7 +120,7 @@ function telaLanc(ls) {
   const n = s => ls.filter(l => l.status === s).length;
   return `<p class="mudo">${ls.length} lançamentos recentes · ${n('pendente')} pendentes · ${n('deferido')} deferidos · ${n('recusado')} recusados. Você pode deferir ou recusar qualquer pendente; o coordenador do curso também.</p>
     ${ls.map(l => `<div class="card cartao" data-id="${esc(l.id)}"><span class="etq">${TIPOS[l.tipo][0]} · ${esc(l.status)}</span><h3>${esc(l.docente)}${l.com_docente ? ' ↔ ' + esc(l.com_docente) : ''}</h3>
-      <div class="meta">${esc(l.curso)} · ${esc(l.disciplina)} · ${esc(l.turma_nome || l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}
+      <div class="meta">${esc(l.curso)} · ${esc(l.disciplina)} - ${esc(l.turma_nome || l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}
       <br>Lançado por ${esc(l.lancado_por)} (${esc(l.papel)})${l.tem_anexo ? '<br>Lista de frequência anexada' : ''}${l.decidido_por ? '<br>Decidido por ' + esc(l.decidido_por) + (l.motivo_decisao ? ': ' + esc(l.motivo_decisao) : '') : ''}</div>${l.tem_anexo ? `<div style="margin-top:10px"><button type="button" data-an="${esc(l.id)}">Ver lista de frequência</button><div class="anv" style="margin-top:8px"></div></div>` : ''}${l.status === 'pendente' ? `<div class="acoes"><button class="prim" data-d="deferido" type="button">Deferir</button><button class="ruim" data-d="recusado" type="button">Recusar</button></div><div class="alvo"></div>` : ''}</div>`).join('') || '<div class="card mudo">Nenhum lançamento ainda.</div>'}
     <p><button id="sair" type="button">Sair</button></p>`;
 }

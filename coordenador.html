@@ -16,12 +16,13 @@
 <script src="comum.js"></script>
 <script>
 const tela = $('tela');
-let token = '';
+let token = '', ABA = 'pend', D = null;
 try { token = sessionStorage.getItem('rep_token') || ''; } catch (e) {}
 
 function guardar(t) { token = t; try { sessionStorage.setItem('rep_token', t); } catch (e) {} }
 
 function login(aviso) {
+  D = null;
   tela.innerHTML = `<div class="card"><h2>Entrar</h2>${aviso ? `<div class="msg erro" role="alert">${esc(aviso)}</div>` : ''}
     <label for="em">E-mail</label><input id="em" type="email" autocomplete="username" inputmode="email">
     <label for="se">Senha</label><input id="se" type="password" autocomplete="current-password">
@@ -38,35 +39,50 @@ function cartao(l, pend) {
   const ET = TIPOS[l.tipo][0], com = l.com_docente ? ' ↔ ' + esc(l.com_docente) : '';
   return `<div class="card cartao" data-id="${esc(l.id)}"><span class="etq">${ET}</span>
     <h3>${esc(l.docente)}${com}</h3>
-    <div class="meta">${esc(l.disciplina)} · ${esc(l.turma_nome || l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}${l.motivo ? '<br>“' + esc(l.motivo) + '”' : ''}
+    <div class="meta">${esc(l.disciplina)} - ${esc(l.turma_nome || l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}${l.motivo ? '<br>“' + esc(l.motivo) + '”' : ''}
       <br>Lançado por ${esc(l.lancado_por)} (${l.papel === 'professor' ? 'professor' : 'representante'})</div>
     ${l.tem_anexo ? `<div style="margin-top:10px"><button type="button" data-an="${esc(l.id)}">Ver lista de frequência</button><div class="anv" style="margin-top:8px"></div></div>` : ''}
     ${pend ? `<div class="acoes"><button class="prim" data-d="deferido" type="button">Deferir</button><button class="ruim" data-d="recusado" type="button">Recusar</button></div><div class="alvo"></div>`
       : `<div class="meta" style="margin-top:8px"><b>${l.status === 'deferido' ? 'Deferido' : 'Recusado'}</b> por ${esc(l.decidido_por)}${l.motivo_decisao ? ': ' + esc(l.motivo_decisao) : ''}</div>`}</div>`;
 }
 
-function listaSaldos(s) {
+/** Aba Saldos: resumo em números e as duas listas (quem deve aula e quem tem crédito), só do seu curso. */
+function telaSaldos(s) {
   if (!s) return '';
-  if (s.erro) return `<h2 style="margin-top:20px">Quem deve aula</h2><div class="msg erro">Lista indisponível agora (${esc(s.erro)}).</div>`;
-  const lin = (x, dev) => `<div class="linha" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--lin)"><span>${esc(x.nome)}</span><b style="flex:0;white-space:nowrap;color:${dev ? 'var(--ruim)' : 'var(--ac)'}">${dev ? '' : '+'}${x.saldo} ${Math.abs(x.saldo) === 1 ? 'aula' : 'aulas'}</b></div>`;
-  return `<h2 style="margin-top:20px">Quem deve aula (${s.devendo.length})</h2><div class="card">${s.devendo.length ? s.devendo.map(x => lin(x, true)).join('') : '<span class="mudo">Ninguém do seu curso deve aula.</span>'}</div>
-    <h2>Com aulas em crédito (${s.credito.length})</h2><div class="card">${s.credito.length ? s.credito.map(x => lin(x, false)).join('') : '<span class="mudo">Ninguém com crédito.</span>'}</div>
-    ${s.atualizado_em ? `<p class="mudo">Atualizado pelo IF Conecta em ${new Date(s.atualizado_em).toLocaleString('pt-BR')}.</p>` : '<p class="mudo">Ainda não atualizado pelo IF Conecta.</p>'}`;
+  if (s.erro) return `<div class="msg erro largo">Lista indisponível agora (${esc(s.erro)}).</div>`;
+  const dev = s.devendo, cre = s.credito;
+  const aulasDev = dev.reduce((a, x) => a - x.saldo, 0), aulasCre = cre.reduce((a, x) => a + x.saldo, 0);
+  const linha = (x, deve) => `<div class="linha" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--lin);gap:12px">
+    <span>${esc(x.nome)}<br><span class="mudo">${esc(x.cursos.join(' · '))}</span></span>
+    <b style="flex:0;white-space:nowrap;color:${deve ? 'var(--ruim)' : 'var(--ac)'}">${deve ? '−' : '+'}${Math.abs(x.saldo)} ${Math.abs(x.saldo) === 1 ? 'aula' : 'aulas'}</b></div>`;
+  return `<div class="resumo largo">
+      <div class="card"><b>${dev.length}</b><span class="mudo">${dev.length === 1 ? 'docente deve' : 'docentes devem'} aula</span></div>
+      <div class="card neg"><b>${aulasDev}</b><span class="mudo">${aulasDev === 1 ? 'aula a repor' : 'aulas a repor'}</span></div>
+      <div class="card"><b>${cre.length}</b><span class="mudo">com aulas em crédito</span></div>
+      <div class="card"><b>${aulasCre}</b><span class="mudo">${aulasCre === 1 ? 'aula em crédito' : 'aulas em crédito'}</span></div>
+    </div>
+    <div class="colunas largo">
+      <div><h2>Quem deve aula</h2><div class="card">${dev.length ? dev.map(x => linha(x, true)).join('') : '<span class="mudo">Ninguém do seu curso deve aula.</span>'}</div></div>
+      <div><h2>Com aulas em crédito</h2><div class="card">${cre.length ? cre.map(x => linha(x, false)).join('') : '<span class="mudo">Ninguém com crédito.</span>'}</div></div>
+    </div>
+    <p class="mudo largo">${s.atualizado_em ? 'Atualizado pelo IF Conecta em ' + new Date(s.atualizado_em).toLocaleString('pt-BR') + '.' : 'Ainda não atualizado pelo IF Conecta.'}</p>`;
 }
 
-async function fila(aviso) {
-  tela.innerHTML = '<div class="card">Carregando…</div>';
-  const r = await chamar('fila', { token });
-  if (r.sair) return login(r.erro);
-  if (r.erro) { tela.innerHTML = `<div class="msg erro">${esc(r.erro)}</div>`; return; }
-  const sd = await chamar('saldos', { token });
+function conteudo() {
+  const r = D.fila;
+  if (ABA === 'pend') return r.pendentes.length ? r.pendentes.map(l => cartao(l, true)).join('') : '<div class="card mudo largo">Nada pendente. 🎉</div>';
+  if (ABA === 'dec') return r.recentes.length ? r.recentes.map(l => cartao(l, false)).join('') : '<div class="card mudo largo">Ainda não há decisões.</div>';
+  return telaSaldos(D.saldos);
+}
+
+function desenhar(aviso) {
+  const r = D.fila, ab = (k, t) => `<button type="button" data-t="${k}" class="${ABA === k ? 'ativa' : ''}">${t}</button>`;
   tela.innerHTML = `<h1>Olá, ${esc(r.nome)}</h1><p class="mudo">Cursos: ${esc(r.cursos.join(', ') || 'nenhum')}</p>
     ${aviso ? `<div class="msg ok">${esc(aviso)}</div>` : ''}
-    <h2>Aguardando você (${r.pendentes.length})</h2>
-    ${r.pendentes.length ? r.pendentes.map(l => cartao(l, true)).join('') : '<div class="card mudo">Nada pendente. 🎉</div>'}
-    ${listaSaldos(sd)}
-    <h2 style="margin-top:20px">Decididos recentemente</h2>${r.recentes.length ? r.recentes.map(l => cartao(l, false)).join('') : '<div class="card mudo">Ainda não há decisões.</div>'}
+    <div class="abas">${ab('pend', `Aguardando (${r.pendentes.length})`)}${ab('dec', 'Decididos')}${ab('saldos', 'Saldos')}</div>
+    <div class="grade">${conteudo()}</div>
     <p><button id="trocar" type="button">Trocar minha senha</button> <button id="sair" type="button">Sair</button></p><div id="ts"></div>`;
+  tela.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { ABA = b.dataset.t; desenhar(); });
   $('sair').onclick = () => { guardar(''); login(); };
   $('trocar').onclick = () => {
     $('ts').innerHTML = `<div class="card"><h2>Trocar minha senha</h2><label for="sa">Senha atual</label><input id="sa" type="password" autocomplete="current-password">
@@ -89,6 +105,17 @@ async function fila(aviso) {
     alvo.innerHTML = r.tipo === 'application/pdf' ? `<a href="${url}" target="_blank" rel="noopener">Abrir o PDF</a>` : `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="Lista de frequência" style="max-width:100%;border-radius:10px;border:1px solid var(--lin)"></a>`;
   });
   tela.querySelectorAll('.cartao').forEach(c => c.querySelectorAll('[data-d]').forEach(b => b.onclick = () => decidir(c, b.dataset.d)));
+}
+
+async function fila(aviso) {
+  tela.innerHTML = '<div class="card">Carregando…</div>';
+  const r = await chamar('fila', { token });
+  if (r.sair) return login(r.erro);
+  if (r.erro) { tela.innerHTML = `<div class="msg erro">${esc(r.erro)}</div>`; return; }
+  const sd = await chamar('saldos', { token });
+  if (sd.sair) return login(sd.erro);
+  D = { fila: r, saldos: sd };
+  desenhar(aviso);
 }
 
 function decidir(c, d) {

@@ -21,3 +21,18 @@ button.ruim{color:var(--ruim);border-color:var(--ruim)}button:disabled{opacity:.
 .cartao h3{margin:0 0 4px;font-size:17px}.cartao .meta{color:var(--mudo);font-size:14px}.acoes{display:flex;gap:10px;margin-top:12px}.acoes button{flex:1}
 .oculto{display:none!important}
 main>p.mudo{margin-top:18px}
+.abas{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.abas button{flex:1;min-width:110px}
+.abas button.ativa{background:var(--ac);color:var(--ac-tx);border-color:var(--ac);font-weight:700}
+.grade{display:grid;gap:12px}.grade>.largo,.largo{grid-column:1/-1}
+.resumo{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.resumo .card{margin:0;text-align:center}.resumo b{display:block;font-size:26px;color:var(--ac)}.resumo .neg b{color:var(--ruim)}
+.colunas{display:grid;gap:12px}
+@media (min-width:900px){
+  main{max-width:1180px;padding:24px 28px 48px}
+  main.estreito{max-width:640px}
+  .grade{grid-template-columns:repeat(2,1fr);align-items:start}
+  .colunas{grid-template-columns:1fr 1fr;align-items:start}
+  .resumo{grid-template-columns:repeat(4,1fr)}
+  .tipos{grid-template-columns:repeat(2,1fr)}
+  .abas button{flex:0 0 auto}
+}

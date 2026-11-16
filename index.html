@@ -9,7 +9,7 @@
 <script src="config.js"></script>
 </head>
 <body>
-<main>
+<main class="estreito">
   <header class="topo"><div><b>Reposição de aulas</b><small>IFTO Campus Gurupi · Gerência de Ensino</small></div></header>
   <div id="tela"></div>
   <p class="mudo">O lançamento só vale depois que o coordenador do curso aceitar.</p>
@@ -70,7 +70,7 @@ function turmasDoDocente() { const d = E.docentes.find(x => x.ref === E.d.ref_do
 function passoTurma() {
   const ts = turmasDoDocente();
   tela.innerHTML = cab('Qual turma e disciplina?') + `<div class="card"><label for="tur">Turma e disciplina</label>
-    <select id="tur"><option value="">Escolha…</option>${ts.map((t, i) => `<option value="${i}"${t.turma === E.d.turma && t.disciplina === E.d.disciplina ? ' selected' : ''}>${esc(t.disciplina)} · ${esc(t.nome || t.turma)}</option>`).join('')}</select>
+    <select id="tur"><option value="">Escolha…</option>${ts.map((t, i) => `<option value="${i}"${t.turma === E.d.turma && t.disciplina === E.d.disciplina ? ' selected' : ''}>${esc(t.disciplina)} - ${esc(t.nome || t.turma)}</option>`).join('')}</select>
     <p class="mudo" style="margin-top:8px">Mostra só as turmas que esse docente tem.</p><div id="msg"></div></div>
     <div class="linha">${voltar()}<button id="prox" class="prim" type="button">Continuar</button></div>`;
   ligar(() => {
@@ -124,7 +124,7 @@ function passoDados() {
 function resumo() {
   const doc = E.docentes.find(x => x.ref === E.d.ref_docente), com = E.docentes.find(x => x.ref === E.d.ref_com);
   return `<div class="card"><b>${TIPOS[E.d.tipo][0]}</b>: ${esc(doc.nome)}${com ? ' ↔ ' + esc(com.nome) : ''}<br>
-    ${esc(E.d.disciplina)} · ${esc(E.d.turma_nome || E.d.turma)}<br>${dataBR(E.d.data)} · ${E.d.quantidade} ${E.d.quantidade === 1 ? 'aula' : 'aulas'}${E.d.anexo ? '<br>Lista de frequência anexada' : ''}</div>`;
+    ${esc(E.d.disciplina)} - ${esc(E.d.turma_nome || E.d.turma)}<br>${dataBR(E.d.data)} · ${E.d.quantidade} ${E.d.quantidade === 1 ? 'aula' : 'aulas'}${E.d.anexo ? '<br>Lista de frequência anexada' : ''}</div>`;
 }
 
 function passoVoce() {
