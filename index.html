@@ -25,13 +25,19 @@ function msg(t) { const m = $('msg'); if (m) m.innerHTML = t ? `<div class="msg 
 function voltar() { return E.passo ? '<button id="vlt" type="button">Voltar</button>' : ''; }
 function ligar(prox) { if ($('vlt')) $('vlt').onclick = () => { E.passo--; desenhar(); }; if ($('prox')) $('prox').onclick = prox; }
 
+/* A lista de docentes é guardada no navegador: a próxima abertura mostra na hora e atualiza em segundo plano. */
 async function iniciar() {
-  tela.innerHTML = '<div class="card">Carregando a lista de docentes…</div>';
+  let guardado = null;
+  try { guardado = JSON.parse(localStorage.getItem('rep_catalogo') || 'null'); } catch (e) {}
+  if (guardado && guardado.docentes && guardado.docentes.length) { E.docentes = guardado.docentes; desenhar(); }
+  else tela.innerHTML = '<div class="card">Carregando a lista de docentes…</div>';
   const r = await chamar('catalogo');
-  if (r.erro) { tela.innerHTML = `<div class="msg erro">${esc(r.erro)}</div>`; return; }
+  if (r.erro) { if (!E.docentes.length) tela.innerHTML = `<div class="msg erro">${esc(r.erro)}</div>`; return; }
+  if (!r.docentes.length) { tela.innerHTML = '<div class="msg erro">A lista de docentes ainda não foi publicada pela Gerência.</div>'; return; }
+  const mudou = JSON.stringify(r.docentes) !== JSON.stringify(E.docentes);
   E.docentes = r.docentes;
-  if (!E.docentes.length) { tela.innerHTML = '<div class="msg erro">A lista de docentes ainda não foi publicada pela Gerência.</div>'; return; }
-  desenhar();
+  try { localStorage.setItem('rep_catalogo', JSON.stringify({ docentes: r.docentes, em: Date.now() })); } catch (e) {}
+  if (!guardado || (mudou && E.passo === 0)) desenhar();
 }
 
 function desenhar() {

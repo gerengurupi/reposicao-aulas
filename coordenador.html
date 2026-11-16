@@ -109,10 +109,9 @@ function desenhar(aviso) {
 
 async function fila(aviso) {
   tela.innerHTML = '<div class="card">Carregando…</div>';
-  const r = await chamar('fila', { token });
+  const [r, sd] = await Promise.all([chamar('fila', { token }), chamar('saldos', { token })]);   // em paralelo: metade do tempo
   if (r.sair) return login(r.erro);
   if (r.erro) { tela.innerHTML = `<div class="msg erro">${esc(r.erro)}</div>`; return; }
-  const sd = await chamar('saldos', { token });
   if (sd.sair) return login(sd.erro);
   D = { fila: r, saldos: sd };
   desenhar(aviso);
