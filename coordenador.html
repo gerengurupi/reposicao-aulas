@@ -39,7 +39,7 @@ function cartao(l, pend) {
   const ET = TIPOS[l.tipo][0], com = l.com_docente ? ' ↔ ' + esc(l.com_docente) : '';
   return `<div class="card cartao" data-id="${esc(l.id)}"><span class="etq">${ET}</span>
     <h3>${esc(l.docente)}${com}</h3>
-    <div class="meta">${esc(l.disciplina)} - ${esc(l.turma_nome || l.turma)}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}${l.motivo ? '<br>“' + esc(l.motivo) + '”' : ''}
+    <div class="meta">${esc(l.disciplina)} - ${esc(nomeMostrado(l.turma_nome, l.curso, l.turma, ''))}<br>${dataBR(l.data)} · ${l.quantidade} ${l.quantidade === 1 ? 'aula' : 'aulas'}${l.motivo ? '<br>“' + esc(l.motivo) + '”' : ''}
       <br>Lançado por ${esc(l.lancado_por)} (${l.papel === 'professor' ? 'professor' : 'representante'})</div>
     ${l.tem_anexo ? `<div style="margin-top:10px"><button type="button" data-an="${esc(l.id)}">Ver lista de frequência</button><div class="anv" style="margin-top:8px"></div></div>` : ''}
     ${pend ? `<div class="acoes"><button class="prim" data-d="deferido" type="button">Deferir</button><button class="ruim" data-d="recusado" type="button">Recusar</button></div><div class="alvo"></div>`

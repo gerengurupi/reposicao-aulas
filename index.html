@@ -65,17 +65,18 @@ function passoDocente() {
   });
 }
 
+function todasTurmas() { return E.docentes.flatMap(d => d.turmas.map(t => t.turma)); }
 function turmasDoDocente() { const d = E.docentes.find(x => x.ref === E.d.ref_docente); return d ? d.turmas : []; }
 
 function passoTurma() {
   const ts = turmasDoDocente();
   tela.innerHTML = cab('Qual turma e disciplina?') + `<div class="card"><label for="tur">Turma e disciplina</label>
-    <select id="tur"><option value="">Escolha…</option>${ts.map((t, i) => `<option value="${i}"${t.turma === E.d.turma && t.disciplina === E.d.disciplina ? ' selected' : ''}>${esc(t.disciplina)} - ${esc(t.nome || t.turma)}</option>`).join('')}</select>
+    <select id="tur"><option value="">Escolha…</option>${ts.map((t, i) => `<option value="${i}"${t.turma === E.d.turma && t.disciplina === E.d.disciplina ? ' selected' : ''}>${esc(t.disciplina)} - ${esc(nomeMostrado(t.nome, t.curso, t.turma, letraTurma(t.turma, todasTurmas())))}</option>`).join('')}</select>
     <p class="mudo" style="margin-top:8px">Mostra só as turmas que esse docente tem.</p><div id="msg"></div></div>
     <div class="linha">${voltar()}<button id="prox" class="prim" type="button">Continuar</button></div>`;
   ligar(() => {
     const i = $('tur').value; if (i === '') return msg('Escolha a turma e a disciplina.');
-    E.d.turma = ts[i].turma; E.d.turma_nome = ts[i].nome || ts[i].turma; E.d.disciplina = ts[i].disciplina; E.d.curso = ts[i].curso; E.passo = 3; desenhar();
+    E.d.turma = ts[i].turma; E.d.turma_nome = nomeMostrado(ts[i].nome, ts[i].curso, ts[i].turma, letraTurma(ts[i].turma, todasTurmas())); E.d.disciplina = ts[i].disciplina; E.d.curso = ts[i].curso; E.passo = 3; desenhar();
   });
 }
 
